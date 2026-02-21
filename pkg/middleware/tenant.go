@@ -12,10 +12,7 @@ const HeaderTenantID = "X-Tenant-ID"
 type TenantMode int
 
 const (
-	// Tenant is expected to be present in context (typically set by Auth middleware from JWT claims).
 	TenantFromContext TenantMode = iota
-
-	// Tenant can be read from X-Tenant-ID header (only for trusted/internal traffic).
 	TenantAllowHeader
 )
 
@@ -37,19 +34,16 @@ func Tenant(cfg TenantConfig) func(http.Handler) http.Handler {
 
 			if tid == "" && cfg.Mode == TenantAllowHeader {
 				if h := r.Header.Get(cfg.Header); h != "" {
-					tid = h
-					ctx = wsctx.WithTenantID(ctx, tid)
+					ctx = wsctx.WithTenantID(ctx, h)
 				}
 			}
 
 			if cfg.Required && wsctx.TenantID(ctx) == "" {
-				err := wserr.New(
-					wserr.CodeInvalidArgument,
-					"missing tenant_id",
-					nil,
-				).WithTrace(ctx)
-
-				wserr.WriteError(w, err)
+				if wsctx.SubjectID(ctx) == "" {
+					wserr.WriteError(ctx, w, wserr.New(wserr.CodeUnauthenticated, "missing authentication", nil))
+					return
+				}
+				wserr.WriteError(ctx, w, wserr.New(wserr.CodeForbidden, "missing tenant_id", nil))
 				return
 			}
 
