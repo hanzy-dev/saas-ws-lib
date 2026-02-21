@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 )
@@ -15,29 +16,44 @@ func Status(code Code) int {
 		return http.StatusForbidden
 	case CodeNotFound:
 		return http.StatusNotFound
-	case CodeConflict:
+	case CodeConflict, CodeAlreadyExists:
 		return http.StatusConflict
 	case CodeTooManyRequests:
 		return http.StatusTooManyRequests
+	case CodeResourceExhausted:
+		return http.StatusRequestEntityTooLarge
+	case CodeDeadlineExceeded:
+		return http.StatusGatewayTimeout
 	case CodeUnavailable:
 		return http.StatusServiceUnavailable
+	case CodeFailedPrecondition:
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}
 }
 
-func Write(w http.ResponseWriter, status int, err *Error) {
+func Write(ctx context.Context, w http.ResponseWriter, status int, err *Error) {
+	if err == nil {
+		err = New(CodeInternal, "internal error", nil)
+	}
+
+	if err.Details == nil {
+		err.Details = map[string]any{}
+	}
+
+	if err.TraceID == "" {
+		err.TraceID = TraceID(ctx)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(err)
 }
 
-// WriteError maps error code to HTTP status automatically.
-// If err is nil, it writes INTERNAL.
-func WriteError(w http.ResponseWriter, err *Error) {
+func WriteError(ctx context.Context, w http.ResponseWriter, err *Error) {
 	if err == nil {
-		Write(w, http.StatusInternalServerError, New(CodeInternal, "internal error", nil))
-		return
+		err = New(CodeInternal, "internal error", nil)
 	}
-	Write(w, Status(err.Code), err)
+	Write(ctx, w, Status(err.Code), err)
 }
