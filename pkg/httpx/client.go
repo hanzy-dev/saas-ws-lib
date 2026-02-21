@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+const HeaderRequestID = "X-Request-ID"
+
 type ClientConfig struct {
 	Timeout time.Duration
 

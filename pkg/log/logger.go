@@ -52,5 +52,11 @@ func (l *Logger) With(ctx context.Context) *slog.Logger {
 	if len(attrs) == 0 {
 		return l.base
 	}
-	return l.base.With(slog.Group("ctx", attrs...))
+
+	args := make([]any, 0, len(attrs))
+	for i := range attrs {
+		args = append(args, attrs[i])
+	}
+
+	return l.base.With(slog.Group("ctx", args...))
 }
