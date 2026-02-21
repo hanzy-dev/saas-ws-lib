@@ -30,9 +30,9 @@ func Recover(logger *wslog.Logger) func(http.Handler) http.Handler {
 						wserr.CodeInternal,
 						"internal error",
 						nil,
-					).WithTrace(r.Context())
+					)
 
-					wserr.WriteError(w, err)
+					wserr.WriteError(r.Context(), w, err)
 				}
 			}()
 
