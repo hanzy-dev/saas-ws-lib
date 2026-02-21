@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	wsctx "saas-ws-lib/pkg/ctx"
+	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
 
 	"go.opentelemetry.io/otel/trace"
 )

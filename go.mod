@@ -1,4 +1,4 @@
-module saas-ws-lib
+module github.com/hanzy-dev/saas-ws-lib
 
 go 1.24.0
 

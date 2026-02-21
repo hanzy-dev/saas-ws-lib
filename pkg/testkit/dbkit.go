@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	wsdb "saas-ws-lib/pkg/db"
+	wsdb "github.com/hanzy-dev/saas-ws-lib/pkg/db"
 )
 
 const EnvTestDBDSN = "TEST_DB_DSN"

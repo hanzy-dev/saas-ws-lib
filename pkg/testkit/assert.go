@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	wserr "saas-ws-lib/pkg/errors"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
 func ReadBody(t *testing.T, r io.Reader) []byte {

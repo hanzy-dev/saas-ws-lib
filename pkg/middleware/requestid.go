@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	wsctx "saas-ws-lib/pkg/ctx"
+	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
 
 	"github.com/google/uuid"
 )

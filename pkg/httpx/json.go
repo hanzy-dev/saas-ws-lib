@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	wserr "saas-ws-lib/pkg/errors"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
 func RequireJSON(next http.Handler) http.Handler {

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	wsctx "saas-ws-lib/pkg/ctx"
+	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	wserr "saas-ws-lib/pkg/errors"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
 func BodyLimit(maxBytes int64) func(http.Handler) http.Handler {

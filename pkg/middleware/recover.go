@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	wserr "saas-ws-lib/pkg/errors"
-	wslog "saas-ws-lib/pkg/log"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
+	wslog "github.com/hanzy-dev/saas-ws-lib/pkg/log"
 )
 
 func Recover(logger *wslog.Logger) func(http.Handler) http.Handler {

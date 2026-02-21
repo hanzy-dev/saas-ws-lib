@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	wsctx "saas-ws-lib/pkg/ctx"
-	wserr "saas-ws-lib/pkg/errors"
+	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
 const HeaderTenantID = "X-Tenant-ID"

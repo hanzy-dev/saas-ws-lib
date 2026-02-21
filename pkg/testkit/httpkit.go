@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	wslog "saas-ws-lib/pkg/log"
-	"saas-ws-lib/pkg/middleware"
+	wslog "github.com/hanzy-dev/saas-ws-lib/pkg/log"
+	"github.com/hanzy-dev/saas-ws-lib/pkg/middleware"
 )
 
 type HTTPTestServer struct {

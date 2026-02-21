@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"saas-ws-lib/pkg/auth"
-	wsctx "saas-ws-lib/pkg/ctx"
-	wserr "saas-ws-lib/pkg/errors"
+	"github.com/hanzy-dev/saas-ws-lib/pkg/auth"
+	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
 const HeaderAuthorization = "Authorization"

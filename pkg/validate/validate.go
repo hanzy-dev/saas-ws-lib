@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	wserr "saas-ws-lib/pkg/errors"
+	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 
 	"github.com/go-playground/validator/v10"
 )
