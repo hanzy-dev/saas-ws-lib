@@ -14,11 +14,14 @@ import (
 type Error struct {
 	Code    Code           `json:"code"`
 	Message string         `json:"message"`
-	Details map[string]any `json:"details,omitempty"`
-	TraceID string         `json:"trace_id,omitempty"`
+	Details map[string]any `json:"details"`
+	TraceID string         `json:"trace_id"`
 }
 
 func New(code Code, message string, details map[string]any) *Error {
+	if details == nil {
+		details = map[string]any{}
+	}
 	return &Error{
 		Code:    code,
 		Message: message,
@@ -36,7 +39,6 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
-// WithTrace attaches trace_id (preferred) or request_id (fallback) from context.
 func (e *Error) WithTrace(ctx context.Context) *Error {
 	if e == nil {
 		return nil
@@ -44,6 +46,9 @@ func (e *Error) WithTrace(ctx context.Context) *Error {
 
 	cp := *e
 	cp.TraceID = TraceID(ctx)
+	if cp.Details == nil {
+		cp.Details = map[string]any{}
+	}
 	return &cp
 }
 
@@ -57,7 +62,6 @@ func TraceID(ctx context.Context) string {
 	return ""
 }
 
-// As tries to unwrap any error into *Error.
 func As(err error) (*Error, bool) {
 	if err == nil {
 		return nil, false
@@ -69,17 +73,30 @@ func As(err error) (*Error, bool) {
 	return nil, false
 }
 
-// MarshalJSON ensures Code is rendered as string.
 func (e *Error) MarshalJSON() ([]byte, error) {
-	type alias Error
-	out := struct {
-		Code string `json:"code"`
-		alias
-	}{
-		Code:  e.Code.String(),
-		alias: alias(*e),
+	if e == nil {
+		return []byte("null"), nil
 	}
-	// alias includes Code too, so we must avoid duplicate by zeroing it.
-	out.alias.Code = ""
-	return json.Marshal(out)
+	if e.Details == nil {
+		e = &Error{
+			Code:    e.Code,
+			Message: e.Message,
+			Details: map[string]any{},
+			TraceID: e.TraceID,
+		}
+	}
+
+	type out struct {
+		Code    string         `json:"code"`
+		Message string         `json:"message"`
+		Details map[string]any `json:"details"`
+		TraceID string         `json:"trace_id"`
+	}
+
+	return json.Marshal(out{
+		Code:    e.Code.String(),
+		Message: e.Message,
+		Details: e.Details,
+		TraceID: e.TraceID,
+	})
 }
