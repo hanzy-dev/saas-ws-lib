@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -31,13 +30,13 @@ func Auth(cfg AuthConfig) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := bearerToken(r.Header.Get(HeaderAuthorization))
 			if token == "" {
-				writeAuthErr(r.Context(), w, wserr.CodeUnauthenticated, "missing bearer token", nil)
+				wserr.WriteError(r.Context(), w, wserr.Unauthenticated("authentication required"))
 				return
 			}
 
 			claims, err := cfg.Verifier.Verify(token)
 			if err != nil {
-				writeAuthErr(r.Context(), w, wserr.CodeUnauthenticated, "invalid token", nil)
+				wserr.WriteError(r.Context(), w, wserr.Unauthenticated("authentication required"))
 				return
 			}
 
@@ -47,9 +46,7 @@ func Auth(cfg AuthConfig) func(http.Handler) http.Handler {
 			ctx = wsctx.WithScopes(ctx, claims.Scopes)
 
 			if len(cfg.RequireScopes) > 0 && !auth.HasAll(claims.Scopes, cfg.RequireScopes...) {
-				writeAuthErr(ctx, w, wserr.CodeForbidden, "missing required scope", map[string]any{
-					"required": scopesToStrings(cfg.RequireScopes),
-				})
+				wserr.WriteError(ctx, w, wserr.Forbidden("forbidden"))
 				return
 			}
 
@@ -62,11 +59,11 @@ func Auth(cfg AuthConfig) func(http.Handler) http.Handler {
 					Resource:  cfg.Resource,
 				})
 				if perr != nil {
-					writeAuthErr(ctx, w, wserr.CodeUnavailable, "policy check unavailable", nil)
+					wserr.WriteError(ctx, w, wserr.Unavailable("authorization service unavailable"))
 					return
 				}
 				if dec != auth.DecisionAllow {
-					writeAuthErr(ctx, w, wserr.CodeForbidden, "policy denied", nil)
+					wserr.WriteError(ctx, w, wserr.Forbidden("forbidden"))
 					return
 				}
 			}
@@ -84,22 +81,5 @@ func bearerToken(v string) string {
 	if !strings.HasPrefix(v, prefix) {
 		return ""
 	}
-	tok := strings.TrimSpace(strings.TrimPrefix(v, prefix))
-	return tok
-}
-
-func scopesToStrings(in []auth.Scope) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]string, len(in))
-	for i := range in {
-		out[i] = in[i].String()
-	}
-	return out
-}
-
-func writeAuthErr(ctx context.Context, w http.ResponseWriter, code wserr.Code, msg string, details map[string]any) {
-	err := wserr.New(code, msg, details)
-	wserr.WriteError(ctx, w, err)
+	return strings.TrimSpace(strings.TrimPrefix(v, prefix))
 }
