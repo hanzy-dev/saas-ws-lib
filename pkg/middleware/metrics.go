@@ -17,14 +17,16 @@ type Metrics struct {
 type MetricsConfig struct {
 	Namespace string
 	Subsystem string
-	Registry  *prometheus.Registry
+	Registry  prometheus.Registerer
 }
 
 func NewMetrics(cfg MetricsConfig) *Metrics {
 	ns := cfg.Namespace
 	sub := cfg.Subsystem
-	if cfg.Registry == nil {
-		cfg.Registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
+
+	reg := cfg.Registry
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
 	}
 
 	m := &Metrics{
@@ -48,11 +50,14 @@ func NewMetrics(cfg MetricsConfig) *Metrics {
 		),
 	}
 
-	cfg.Registry.MustRegister(m.RequestsTotal, m.RequestDuration)
+	prometheus.MustRegister(m.RequestsTotal, m.RequestDuration)
+	if reg != prometheus.DefaultRegisterer {
+		reg.MustRegister(m.RequestsTotal, m.RequestDuration)
+	}
+
 	return m
 }
 
-// Handler returns the /metrics HTTP handler.
 func Handler(reg *prometheus.Registry) http.Handler {
 	if reg == nil {
 		return promhttp.Handler()
@@ -60,9 +65,6 @@ func Handler(reg *prometheus.Registry) http.Handler {
 	return promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 }
 
-// Instrument instruments HTTP requests with status, method, and route label.
-// Route should be a stable identifier (e.g. "POST /v1/auth/login").
-// If you don't have routing pattern available, pass a static route name at registration time.
 func (m *Metrics) Instrument(route string) func(http.Handler) http.Handler {
 	if m == nil {
 		panic("middleware.Metrics.Instrument requires non-nil Metrics")
