@@ -1,8 +1,6 @@
 package middleware
 
-import (
-	"net/http"
-)
+import "net/http"
 
 func BodyLimit(maxBytes int64) func(http.Handler) http.Handler {
 	if maxBytes <= 0 {
