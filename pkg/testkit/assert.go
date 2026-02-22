@@ -57,10 +57,12 @@ func AssertError(t *testing.T, resp *http.Response, wantCode wserr.Code) wserr.E
 		t.Fatalf("error message is empty body=%s", string(body))
 	}
 
-	// trace_id can be empty only if service doesn't run OTel + RequestID middleware;
-	// in our stack it should exist. Keep strict to enforce discipline.
 	if errObj.TraceID == "" {
 		t.Fatalf("trace_id is empty body=%s", string(body))
+	}
+
+	if errObj.Details == nil {
+		t.Fatalf("details must not be nil body=%s", string(body))
 	}
 
 	return errObj
