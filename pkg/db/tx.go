@@ -49,3 +49,8 @@ func WithTx(ctx context.Context, db *sql.DB, opts TxOptions, fn TxFunc) error {
 
 	return nil
 }
+
+// WithTxDefault runs a transaction using default isolation level and read-write mode.
+func WithTxDefault(ctx context.Context, db *sql.DB, fn TxFunc) error {
+	return WithTx(ctx, db, TxOptions{}, fn)
+}
