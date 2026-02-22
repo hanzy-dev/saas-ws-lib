@@ -57,6 +57,22 @@ func ResourceExhausted(message string) *Error {
 	return New(CodeResourceExhausted, message, nil)
 }
 
+func Unavailable(message string) *Error {
+	return New(CodeUnavailable, message, nil)
+}
+
+func DeadlineExceeded(message string) *Error {
+	return New(CodeDeadlineExceeded, message, nil)
+}
+
+func AlreadyExists(message string) *Error {
+	return New(CodeAlreadyExists, message, nil)
+}
+
+func FailedPrecondition(message string) *Error {
+	return New(CodeFailedPrecondition, message, nil)
+}
+
 func (e *Error) Error() string {
 	if e == nil {
 		return ""
