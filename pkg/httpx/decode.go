@@ -1,46 +1,59 @@
 package httpx
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
+	"bytes"
 	"net/http"
+	"net/http/httptest"
+	"testing"
 
 	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
 )
 
-func DecodeJSON(r *http.Request, dst any) *wserr.Error {
-	if r == nil || dst == nil {
-		return wserr.New(wserr.CodeInvalidArgument, "invalid request", nil)
+type testPayload struct {
+	Name string `json:"name"`
+}
+
+func TestDecodeJSON_Valid(t *testing.T) {
+	body := bytes.NewBufferString(`{"name":"ok"}`)
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+
+	var p testPayload
+	err := DecodeJSON(req, &p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if r.Body == nil || r.Body == http.NoBody {
-		return wserr.New(wserr.CodeInvalidArgument, "empty request body", nil)
+	if p.Name != "ok" {
+		t.Fatalf("decode mismatch")
 	}
+}
 
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
+func TestDecodeJSON_InvalidJSON(t *testing.T) {
+	body := bytes.NewBufferString(`{"name":`)
+	req := httptest.NewRequest(http.MethodPost, "/", body)
 
-	if err := dec.Decode(dst); err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
-			return wserr.New(wserr.CodeResourceExhausted, "request body too large", map[string]any{
-				"limit_bytes": maxErr.Limit,
-			})
-		}
-		if errors.Is(err, io.EOF) {
-			return wserr.New(wserr.CodeInvalidArgument, "empty request body", nil)
-		}
-		return wserr.New(wserr.CodeInvalidArgument, "invalid json body", nil)
+	var p testPayload
+	err := DecodeJSON(req, &p)
+	if err == nil {
+		t.Fatalf("expected error")
 	}
-
-	if dec.More() {
-		return wserr.New(wserr.CodeInvalidArgument, "invalid json body", nil)
+	if err.Code != wserr.CodeInvalidArgument {
+		t.Fatalf("code mismatch: got=%s", err.Code)
 	}
+}
 
-	if err := dec.Decode(&struct{}{}); err != io.EOF {
-		return wserr.New(wserr.CodeInvalidArgument, "invalid json body", nil)
+func TestDecodeJSON_TooLarge(t *testing.T) {
+	body := bytes.NewBufferString(`{"name":"ok"}`)
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+
+	rr := httptest.NewRecorder()
+	req.Body = http.MaxBytesReader(rr, req.Body, 5)
+
+	var p testPayload
+	err := DecodeJSON(req, &p)
+	if err == nil {
+		t.Fatalf("expected error")
 	}
-
-	return nil
+	if err.Code != wserr.CodeResourceExhausted {
+		t.Fatalf("expected RESOURCE_EXHAUSTED, got=%s", err.Code)
+	}
 }
