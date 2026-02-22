@@ -1,11 +1,19 @@
 package observability
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+)
 
 type Prometheus struct {
 	Registry *prometheus.Registry
 }
 
 func NewPrometheus() *Prometheus {
-	return &Prometheus{Registry: prometheus.NewRegistry()}
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+	return &Prometheus{Registry: reg}
 }
