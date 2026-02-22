@@ -26,13 +26,11 @@ func Recover(logger *wslog.Logger) func(http.Handler) http.Handler {
 						"stack", string(stack),
 					)
 
-					err := wserr.New(
-						wserr.CodeInternal,
-						"internal error",
-						nil,
+					wserr.WriteError(
+						r.Context(),
+						w,
+						wserr.Internal("internal error"),
 					)
-
-					wserr.WriteError(r.Context(), w, err)
 				}
 			}()
 
