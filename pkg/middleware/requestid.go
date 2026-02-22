@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
 
@@ -10,11 +11,14 @@ import (
 
 const HeaderRequestID = "X-Request-ID"
 
+const maxRequestIDLen = 128
+
 func RequestID() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rid := r.Header.Get(HeaderRequestID)
-			if rid == "" {
+			rid := strings.TrimSpace(r.Header.Get(HeaderRequestID))
+
+			if rid == "" || len(rid) > maxRequestIDLen {
 				rid = uuid.NewString()
 			}
 
