@@ -29,6 +29,34 @@ func New(code Code, message string, details map[string]any) *Error {
 	}
 }
 
+func Internal(message string) *Error {
+	return New(CodeInternal, message, nil)
+}
+
+func InvalidArgument(message string) *Error {
+	return New(CodeInvalidArgument, message, nil)
+}
+
+func NotFound(message string) *Error {
+	return New(CodeNotFound, message, nil)
+}
+
+func Forbidden(message string) *Error {
+	return New(CodeForbidden, message, nil)
+}
+
+func Unauthenticated(message string) *Error {
+	return New(CodeUnauthenticated, message, nil)
+}
+
+func Conflict(message string) *Error {
+	return New(CodeConflict, message, nil)
+}
+
+func ResourceExhausted(message string) *Error {
+	return New(CodeResourceExhausted, message, nil)
+}
+
 func (e *Error) Error() string {
 	if e == nil {
 		return ""
@@ -45,10 +73,12 @@ func (e *Error) WithTrace(ctx context.Context) *Error {
 	}
 
 	cp := *e
-	cp.TraceID = TraceID(ctx)
+
 	if cp.Details == nil {
 		cp.Details = map[string]any{}
 	}
+
+	cp.TraceID = TraceID(ctx)
 	return &cp
 }
 
@@ -77,13 +107,10 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 	if e == nil {
 		return []byte("null"), nil
 	}
-	if e.Details == nil {
-		e = &Error{
-			Code:    e.Code,
-			Message: e.Message,
-			Details: map[string]any{},
-			TraceID: e.TraceID,
-		}
+
+	details := e.Details
+	if details == nil {
+		details = map[string]any{}
 	}
 
 	type out struct {
@@ -96,7 +123,7 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out{
 		Code:    e.Code.String(),
 		Message: e.Message,
-		Details: e.Details,
+		Details: details,
 		TraceID: e.TraceID,
 	})
 }
