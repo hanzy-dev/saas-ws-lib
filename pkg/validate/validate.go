@@ -1,60 +1,74 @@
 package validate
 
 import (
-	"testing"
+	"reflect"
+	"strings"
+	"sync"
 
 	wserr "github.com/hanzy-dev/saas-ws-lib/pkg/errors"
+
+	"github.com/go-playground/validator/v10"
 )
 
-type createUserReq struct {
-	Email string `json:"email" validate:"required,email"`
-	Age   int    `json:"age" validate:"gte=18"`
+var (
+	once sync.Once
+	v    *validator.Validate
+)
+
+func get() *validator.Validate {
+	once.Do(func() {
+		v = validator.New()
+
+		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+			name := fld.Tag.Get("json")
+			if name == "" {
+				return fld.Name
+			}
+			name = strings.Split(name, ",")[0]
+			if name == "-" {
+				return ""
+			}
+			return name
+		})
+	})
+	return v
 }
 
-func TestStruct_Valid(t *testing.T) {
-	req := createUserReq{
-		Email: "user@example.com",
-		Age:   20,
-	}
-
-	err := Struct(req)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+type FieldError struct {
+	Field string `json:"field"`
+	Tag   string `json:"tag"`
+	Param string `json:"param,omitempty"`
 }
 
-func TestStruct_Invalid(t *testing.T) {
-	req := createUserReq{
-		Email: "invalid",
-		Age:   15,
+func Struct(s any) *wserr.Error {
+	if s == nil {
+		return wserr.New(wserr.CodeInvalidArgument, "validation failed", map[string]any{
+			"fields": []FieldError{{Field: "", Tag: "nil"}},
+		})
 	}
 
-	err := Struct(req)
-	if err == nil {
-		t.Fatalf("expected validation error")
+	if err := get().Struct(s); err != nil {
+		if ves, ok := err.(validator.ValidationErrors); ok {
+			fields := make([]FieldError, 0, len(ves))
+			for _, fe := range ves {
+				field := fe.Field()
+				if field == "" {
+					field = fe.StructField()
+				}
+				fields = append(fields, FieldError{
+					Field: field,
+					Tag:   fe.Tag(),
+					Param: fe.Param(),
+				})
+			}
+
+			return wserr.New(wserr.CodeInvalidArgument, "validation failed", map[string]any{
+				"fields": fields,
+			})
+		}
+
+		return wserr.New(wserr.CodeInvalidArgument, "validation failed", map[string]any{})
 	}
 
-	if err.Code != wserr.CodeInvalidArgument {
-		t.Fatalf("code mismatch: got=%s want=%s", err.Code, wserr.CodeInvalidArgument)
-	}
-
-	fields, ok := err.Details["fields"].([]FieldError)
-	if !ok {
-		t.Fatalf("expected fields in details")
-	}
-
-	if len(fields) == 0 {
-		t.Fatalf("expected at least one field error")
-	}
-}
-
-func TestStruct_NilInput(t *testing.T) {
-	err := Struct(nil)
-	if err == nil {
-		t.Fatalf("expected error for nil input")
-	}
-
-	if err.Code != wserr.CodeInvalidArgument {
-		t.Fatalf("code mismatch")
-	}
+	return nil
 }
