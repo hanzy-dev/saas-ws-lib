@@ -18,16 +18,11 @@ const HeaderRequestID = "X-Request-ID"
 type ClientConfig struct {
 	Timeout time.Duration
 
-	// MaxRetries is applied only for idempotent methods and network/timeout errors.
-	// Default: 1
 	MaxRetries int
 
-	// Transport is optional. If nil, a sane default transport is used.
 	Transport http.RoundTripper
 
-	// PropagateRequestID copies X-Request-ID from ctx into outbound request header when missing.
-	// Default: true
-	PropagateRequestID bool
+	DisableRequestIDPropagation bool
 }
 
 func NewClient(cfg ClientConfig) *http.Client {
@@ -43,17 +38,11 @@ func NewClient(cfg ClientConfig) *http.Client {
 	if cfg.Transport == nil {
 		cfg.Transport = defaultTransport()
 	}
-	if !cfg.PropagateRequestID {
-		// leave it false explicitly
-	} else {
-		cfg.PropagateRequestID = true
-	}
 
 	rt := cfg.Transport
-	if cfg.PropagateRequestID {
+	if !cfg.DisableRequestIDPropagation {
 		rt = &requestIDTransport{base: rt}
 	}
-	// OTel propagation + spans for outbound HTTP calls.
 	rt = otelhttp.NewTransport(rt)
 
 	return &http.Client{
@@ -62,9 +51,6 @@ func NewClient(cfg ClientConfig) *http.Client {
 	}
 }
 
-// Do sends an HTTP request with safe retry semantics:
-// - retries only on network/timeout errors
-// - retries only for idempotent methods (GET/HEAD/PUT/DELETE) and when body is replayable
 func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) (*http.Response, error) {
 	if c == nil {
 		return nil, errors.New("httpx: nil client")
@@ -77,12 +63,22 @@ func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) 
 
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// ensure body can be re-sent if we retry
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
 		if attempt > 0 {
 			if err := rewindBody(req); err != nil {
 				return nil, err
 			}
-			time.Sleep(backoff(attempt))
+			d := backoff(attempt)
+			t := time.NewTimer(d)
+			select {
+			case <-ctx.Done():
+				t.Stop()
+				return nil, ctx.Err()
+			case <-t.C:
+			}
 		}
 
 		resp, err := c.Do(req)
@@ -131,10 +127,9 @@ func isIdempotent(method string) bool {
 
 func isRetryableNetErr(err error) bool {
 	var ne net.Error
-	if errors.As(err, &ne) && (ne.Timeout() || ne.Temporary()) {
+	if errors.As(err, &ne) && ne.Timeout() {
 		return true
 	}
-	// common network error cases
 	if errors.Is(err, io.EOF) {
 		return true
 	}
@@ -142,7 +137,6 @@ func isRetryableNetErr(err error) bool {
 }
 
 func backoff(attempt int) time.Duration {
-	// simple bounded linear backoff, avoids noise
 	d := time.Duration(attempt) * 150 * time.Millisecond
 	if d > 800*time.Millisecond {
 		d = 800 * time.Millisecond
@@ -151,7 +145,6 @@ func backoff(attempt int) time.Duration {
 }
 
 func rewindBody(req *http.Request) error {
-	// No body or body already replayable via GetBody
 	if req.Body == nil || req.Body == http.NoBody {
 		return nil
 	}
