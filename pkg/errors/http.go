@@ -35,25 +35,29 @@ func Status(code Code) int {
 
 func Write(ctx context.Context, w http.ResponseWriter, status int, err *Error) {
 	if err == nil {
-		err = New(CodeInternal, "internal error", nil)
+		err = Internal("internal error")
 	}
 
-	if err.Details == nil {
-		err.Details = map[string]any{}
-	}
-
-	if err.TraceID == "" {
-		err.TraceID = TraceID(ctx)
+	out := err
+	if out.TraceID == "" || out.Details == nil {
+		cp := *out
+		if cp.Details == nil {
+			cp.Details = map[string]any{}
+		}
+		if cp.TraceID == "" {
+			cp.TraceID = TraceID(ctx)
+		}
+		out = &cp
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(err)
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 func WriteError(ctx context.Context, w http.ResponseWriter, err *Error) {
 	if err == nil {
-		err = New(CodeInternal, "internal error", nil)
+		err = Internal("internal error")
 	}
 	Write(ctx, w, Status(err.Code), err)
 }
