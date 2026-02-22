@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,12 +19,12 @@ type MetricsConfig struct {
 	Namespace string
 	Subsystem string
 	Registry  prometheus.Registerer
+
+	// If true, status will be grouped (2xx, 4xx, 5xx) instead of exact code.
+	GroupStatus bool
 }
 
 func NewMetrics(cfg MetricsConfig) *Metrics {
-	ns := cfg.Namespace
-	sub := cfg.Subsystem
-
 	reg := cfg.Registry
 	if reg == nil {
 		reg = prometheus.DefaultRegisterer
@@ -32,8 +33,8 @@ func NewMetrics(cfg MetricsConfig) *Metrics {
 	m := &Metrics{
 		RequestsTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: ns,
-				Subsystem: sub,
+				Namespace: cfg.Namespace,
+				Subsystem: cfg.Subsystem,
 				Name:      "http_requests_total",
 				Help:      "Total number of HTTP requests processed.",
 			},
@@ -41,19 +42,22 @@ func NewMetrics(cfg MetricsConfig) *Metrics {
 		),
 		RequestDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Namespace: ns,
-				Subsystem: sub,
+				Namespace: cfg.Namespace,
+				Subsystem: cfg.Subsystem,
 				Name:      "http_request_duration_seconds",
 				Help:      "HTTP request duration in seconds.",
+				Buckets: []float64{
+					0.005, 0.01, 0.02, 0.05,
+					0.1, 0.2, 0.3, 0.5,
+					0.75, 1, 1.5, 2,
+					3, 5,
+				},
 			},
 			[]string{"method", "route", "status"},
 		),
 	}
 
-	prometheus.MustRegister(m.RequestsTotal, m.RequestDuration)
-	if reg != prometheus.DefaultRegisterer {
-		reg.MustRegister(m.RequestsTotal, m.RequestDuration)
-	}
+	reg.MustRegister(m.RequestsTotal, m.RequestDuration)
 
 	return m
 }
@@ -70,7 +74,10 @@ func (m *Metrics) Instrument(route string) func(http.Handler) http.Handler {
 		panic("middleware.Metrics.Instrument requires non-nil Metrics")
 	}
 	if route == "" {
-		route = "unknown"
+		panic("metrics route must be a stable identifier, e.g. 'POST /v1/auth/login'")
+	}
+	if strings.Contains(route, "{") || strings.Contains(route, "}") {
+		panic("metrics route must not contain dynamic path parameters")
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -81,8 +88,14 @@ func (m *Metrics) Instrument(route string) func(http.Handler) http.Handler {
 			next.ServeHTTP(sw, r)
 
 			status := strconv.Itoa(sw.status)
-			m.RequestsTotal.WithLabelValues(r.Method, route, status).Inc()
-			m.RequestDuration.WithLabelValues(r.Method, route, status).Observe(time.Since(start).Seconds())
+
+			m.RequestsTotal.
+				WithLabelValues(r.Method, route, status).
+				Inc()
+
+			m.RequestDuration.
+				WithLabelValues(r.Method, route, status).
+				Observe(time.Since(start).Seconds())
 		})
 	}
 }
