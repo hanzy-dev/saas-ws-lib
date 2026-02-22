@@ -44,6 +44,9 @@ func (l *Logger) With(ctx context.Context) *slog.Logger {
 	if tid := wsctx.TenantID(ctx); tid != "" {
 		attrs = append(attrs, slog.String("tenant_id", tid))
 	}
+	if sid := wsctx.SubjectID(ctx); sid != "" {
+		attrs = append(attrs, slog.String("subject_id", sid))
+	}
 
 	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
 		attrs = append(attrs, slog.String("trace_id", sc.TraceID().String()))
