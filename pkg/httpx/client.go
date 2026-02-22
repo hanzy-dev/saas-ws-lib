@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 )
 
 const HeaderRequestID = "X-Request-ID"
+
+const maxRetryCap = 3
 
 type ClientConfig struct {
 	Timeout time.Duration
@@ -32,8 +35,8 @@ func NewClient(cfg ClientConfig) *http.Client {
 	if cfg.MaxRetries < 0 {
 		cfg.MaxRetries = 0
 	}
-	if cfg.MaxRetries == 0 {
-		cfg.MaxRetries = 1
+	if cfg.MaxRetries > maxRetryCap {
+		cfg.MaxRetries = maxRetryCap
 	}
 	if cfg.Transport == nil {
 		cfg.Transport = defaultTransport()
@@ -51,7 +54,7 @@ func NewClient(cfg ClientConfig) *http.Client {
 	}
 }
 
-func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) (*http.Response, error) {
+func Do(ctx context.Context, c *http.Client, req *http.Request, retries int) (*http.Response, error) {
 	if c == nil {
 		return nil, errors.New("httpx: nil client")
 	}
@@ -59,10 +62,18 @@ func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) 
 		return nil, errors.New("httpx: nil request")
 	}
 
+	if retries < 0 {
+		retries = 0
+	}
+	if retries > maxRetryCap {
+		retries = maxRetryCap
+	}
+
 	req = req.WithContext(ctx)
 
 	var lastErr error
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+
+	for attempt := 0; attempt <= retries; attempt++ {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -71,23 +82,22 @@ func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) 
 			if err := rewindBody(req); err != nil {
 				return nil, err
 			}
-			d := backoff(attempt)
-			t := time.NewTimer(d)
-			select {
-			case <-ctx.Done():
-				t.Stop()
-				return nil, ctx.Err()
-			case <-t.C:
-			}
+			sleep(ctx, backoff(attempt))
 		}
 
 		resp, err := c.Do(req)
 		if err == nil {
+			if shouldRetryStatus(resp) && attempt < retries && isIdempotent(req.Method) {
+				lastErr = fmt.Errorf("httpx: upstream %d", resp.StatusCode)
+				_ = resp.Body.Close()
+				continue
+			}
 			return resp, nil
 		}
+
 		lastErr = err
 
-		if attempt == maxRetries {
+		if attempt == retries {
 			break
 		}
 		if !isIdempotent(req.Method) {
@@ -98,7 +108,16 @@ func Do(ctx context.Context, c *http.Client, req *http.Request, maxRetries int) 
 		}
 	}
 
-	return nil, lastErr
+	return nil, fmt.Errorf("httpx: request failed after %d attempts: %w", retries+1, lastErr)
+}
+
+func sleep(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
+	}
 }
 
 func defaultTransport() *http.Transport {
@@ -134,6 +153,17 @@ func isRetryableNetErr(err error) bool {
 		return true
 	}
 	return false
+}
+
+func shouldRetryStatus(resp *http.Response) bool {
+	switch resp.StatusCode {
+	case http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
 }
 
 func backoff(attempt int) time.Duration {
