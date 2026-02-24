@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # needed for Codecov OIDC (recommended)
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +17,7 @@ jobs:
   test:
     name: test (go 1.24.13)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,6 +44,13 @@ jobs:
           path: coverage.out
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+          flags: unittests
+          fail_ci_if_error: true
 
   vulncheck:
     name: govulncheck (go 1.24.13)
