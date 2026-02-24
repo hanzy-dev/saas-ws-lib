@@ -1,8 +1,9 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
   tests: true
+  go: "1.22"
 
 linters:
   default: none
@@ -20,18 +21,17 @@ linters:
     - unconvert
     - unused
 
-  settings:
-    revive:
-      rules:
-        - name: exported
-          disabled: true
-
-  exclusions:
+linters-settings:
+  revive:
     rules:
-      - path: _test\.go
-        linters:
-          - errcheck
+      - name: exported
+        disabled: true
 
 issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+
   max-issues-per-linter: 0
   max-same-issues: 0
