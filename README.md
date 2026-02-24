@@ -1,8 +1,11 @@
 # saas-ws-lib
 
+[![CI](https://github.com/hanzy-dev/saas-ws-lib/actions/workflows/ci.yml/badge.svg)](https://github.com/hanzy-dev/saas-ws-lib/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hanzy-dev/saas-ws-lib)](https://goreportcard.com/report/github.com/hanzy-dev/saas-ws-lib)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/hanzy-dev/saas-ws-lib)]()
-[![License](https://img.shields.io/github/license/hanzy-dev/saas-ws-lib)]()
+[![Go Version](https://img.shields.io/github/go-mod/go-version/hanzy-dev/saas-ws-lib)](https://github.com/hanzy-dev/saas-ws-lib/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/hanzy-dev/saas-ws-lib)](https://github.com/hanzy-dev/saas-ws-lib/blob/main/LICENSE)
+[![Codecov](https://codecov.io/gh/hanzy-dev/saas-ws-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/hanzy-dev/saas-ws-lib)
+
 
 Production-grade shared foundation for Workspace microservices.
 
@@ -11,6 +14,31 @@ Production-grade shared foundation for Workspace microservices.
 > *Built with stability in mind: 100% of core packages (db, errors, httpx, middleware) are covered by unit tests.*
 
 This module enforces consistent architecture and operational standards across all Workspace services (Identity, Core, Payments, Orders, etc.), eliminating repository drift and inconsistent patterns.
+
+## Compatibility
+
+- Go ≥ 1.24
+- OpenTelemetry ≥ 1.40
+- Prometheus client ≥ 1.19
+
+## Quickstart (chi)
+
+```
+go get github.com/hanzy-dev/saas-ws-lib
+```
+
+```
+r := chi.NewRouter()
+logger := log.NewJSON(log.Options{})
+
+r.Use(middleware.RequestID())
+r.Use(middleware.Recover(logger))
+r.Use(httpx.RequireJSON)
+
+r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+})
+```
 
 ## What This Library Guarantees
 
@@ -75,7 +103,7 @@ wserr.ResourceExhausted("payload too large")
 - Safe outbound HTTP client:
   - Idempotent-aware retry
   - Capped retry attempts
-  - Retry on transient 5xx
+  - Retry on transient failures
   - Request ID propagation
   - Trace propagation
   - Context-aware backoff
@@ -94,7 +122,7 @@ wserr.ResourceExhausted("payload too large")
 
 ```
 err := db.WithTxDefault(ctx, sqlDB, func(ctx context.Context, tx *sql.Tx) error {
-    return nil
+	return nil
 })
 ```
 
@@ -102,8 +130,8 @@ err := db.WithTxDefault(ctx, sqlDB, func(ctx context.Context, tx *sql.Tx) error 
 
 ```
 err := db.WithTx(ctx, sqlDB, db.TxOptions{
-    Isolation: sql.LevelSerializable,
-    ReadOnly:  false,
+	Isolation: sql.LevelSerializable,
+	ReadOnly:  false,
 }, fn)
 ```
 
@@ -111,8 +139,8 @@ err := db.WithTx(ctx, sqlDB, db.TxOptions{
 
 ```
 if err := validate.Struct(req); err != nil {
-    wserr.WriteError(r.Context(), w, err)
-    return
+	wserr.WriteError(r.Context(), w, err)
+	return
 }
 ```
 
@@ -137,60 +165,10 @@ This library enforces the following invariants across all Workspace services:
 - Authentication never exposes verification details.
 - Observability is first-class, not optional.
 
-All Workspace services rely on these guarantees.
-
 ## Installation
 
 ```
 go get github.com/hanzy-dev/saas-ws-lib
-
-```
-## Minimal Service Example (chi)
-
-```
-package main
-
-import (
-	"context"
-	"net/http"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-
-	"github.com/hanzy-dev/saas-ws-lib/pkg/httpx"
-	"github.com/hanzy-dev/saas-ws-lib/pkg/log"
-	"github.com/hanzy-dev/saas-ws-lib/pkg/middleware"
-	"github.com/hanzy-dev/saas-ws-lib/pkg/runtime"
-)
-
-func main() {
-	logger := log.NewJSON(log.Options{})
-
-	r := chi.NewRouter()
-
-	r.Use(middleware.RequestID())
-	r.Use(middleware.Recover(logger))
-	r.Use(httpx.RequireJSON)
-
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
-
-	server := httpx.NewServer(httpx.ServerConfig{
-		Addr: ":8080",
-	}, r)
-
-	shutdown := runtime.New(10 * time.Second)
-	shutdown.Add(func(ctx context.Context) error {
-		return server.Shutdown(ctx)
-	})
-
-	go func() {
-		_ = server.ListenAndServe()
-	}()
-
-	_ = shutdown.Wait(context.Background())
-}
 ```
 
 ## Versioning Policy
@@ -198,18 +176,21 @@ func main() {
 - Semantic Versioning (MAJOR.MINOR.PATCH)
 - Backward-compatible changes only in MINOR
 - Breaking changes only in MAJOR
-- Forward-only migration policy enforced
-- Services must pin minor versions explicitly
+- Services should pin minor versions
 
 ## Roadmap
 
  - [x] Standardized error discipline
  - [x] Safe retry-aware HTTP client
- - [x] Transaction isolation support
+ - [x]Transaction isolation support
  - [x] Forward-only migration guard
  - [ ] DB metrics instrumentation
  - [ ] OpenTelemetry exporter auto-bootstrap helper
  - [ ] Kubernetes production example
+
+## Changelog
+
+See GitHub Releases for versioned changes.
 
 ## Philosophy
 
@@ -227,7 +208,7 @@ This is the foundation of a multi-repository microservice ecosystem.
 
 saas-ws-lib adalah fondasi production-grade untuk seluruh microservice Workspace.
 
-Library ini memastikan semua repository (Identity, Core, Payments, dll) memiliki:
+Library ini memastikan semua repository memiliki:
 
 - standar error yang konsisten
 - disiplin tracing & logging
@@ -238,11 +219,3 @@ Library ini memastikan semua repository (Identity, Core, Payments, dll) memiliki
 - graceful shutdown yang benar
 
 Tujuannya adalah menghilangkan drift arsitektur dan memastikan semua service memiliki disiplin operasional yang sama.
-
-### Standar yang Dijaga
-
-- trace_id selalu ada di response error
-- details selalu object
-- retry hanya untuk method idempotent
-- isolation level transaksi bisa dikontrol
-- route metrics harus stabil (tidak boleh dynamic)
