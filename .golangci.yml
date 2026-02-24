@@ -1,12 +1,9 @@
-version: "2"
-
 run:
   timeout: 5m
   tests: true
-  go: "1.22"
 
 linters:
-  default: none
+  disable-all: true
   enable:
     - errcheck
     - staticcheck
