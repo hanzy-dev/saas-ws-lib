@@ -182,7 +182,7 @@ go get github.com/hanzy-dev/saas-ws-lib
 
  - [x] Standardized error discipline
  - [x] Safe retry-aware HTTP client
- - [x]Transaction isolation support
+ - [x] Transaction isolation support
  - [x] Forward-only migration guard
  - [ ] DB metrics instrumentation
  - [ ] OpenTelemetry exporter auto-bootstrap helper
