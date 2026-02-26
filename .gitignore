@@ -36,3 +36,6 @@ Thumbs.db
 
 # Local env
 .env
+
+# AI & Development Instructions (Local only)
+.github/instructions/
