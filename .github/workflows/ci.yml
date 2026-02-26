@@ -39,6 +39,9 @@ jobs:
       - name: Run tests (race + coverage)
         run: go test ./... -race -covermode=atomic -coverprofile=coverage.out
 
+      - name: Coverage gate (package thresholds)
+        run: bash scripts/coverage_gate.sh coverage.out
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
