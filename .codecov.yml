@@ -1,0 +1,19 @@
+coverage:
+  status:
+    project:
+      default:
+        informational: false
+        target: auto
+    patch:
+      default:
+        informational: false
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+
+flags:
+  unittests:
+    paths:
+      - pkg
+      - doc.go
