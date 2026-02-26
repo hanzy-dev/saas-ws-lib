@@ -14,6 +14,8 @@ type ServerConfig struct {
 	IdleTimeout       time.Duration
 }
 
+// NewServer constructs an http.Server with safe default timeouts when unset.
+// Handler is passed through as-is.
 func NewServer(cfg ServerConfig, h http.Handler) *http.Server {
 	if cfg.ReadHeaderTimeout == 0 {
 		cfg.ReadHeaderTimeout = 5 * time.Second
