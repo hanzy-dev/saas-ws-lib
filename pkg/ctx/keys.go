@@ -5,13 +5,13 @@ type key string
 
 const (
 	// Request-scoped identifiers
-	KeyRequestID key = "request_id"
-	KeyTenantID  key = "tenant_id"
+	keyRequestID key = "request_id"
+	keyTenantID  key = "tenant_id"
 
 	// Auth / identity
-	KeySubjectID key = "subject_id" // user/service id (sub)
-	KeyScopes    key = "scopes"     // []string
+	keySubjectID key = "subject_id" // user/service id (sub)
+	keyScopes    key = "scopes"     // []string
 
-	// Optional: store raw token claims if you want (keep it lean; don't overuse)
-	KeyClaims key = "claims"
+	// Optional: keep it lean; do not store large/untrusted payloads
+	keyClaims key = "claims"
 )
