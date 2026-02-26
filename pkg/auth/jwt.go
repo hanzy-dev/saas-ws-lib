@@ -129,10 +129,19 @@ func (v Verifier) Verify(token string) (*Claims, error) {
 
 	// Optional audience check
 	if v.Config.RequireAudience {
-		if strings.TrimSpace(v.Config.Audience) == "" {
+		aud := strings.TrimSpace(v.Config.Audience)
+		if aud == "" {
 			return nil, ErrInvalidToken
 		}
-		if !claims.VerifyAudience(v.Config.Audience, true) {
+
+		ok := false
+		for _, a := range claims.Audience {
+			if strings.TrimSpace(a) == aud {
+				ok = true
+				break
+			}
+		}
+		if !ok {
 			return nil, ErrInvalidToken
 		}
 	}
