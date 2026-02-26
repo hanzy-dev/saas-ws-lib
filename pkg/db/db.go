@@ -21,11 +21,18 @@ type Config struct {
 }
 
 func Open(cfg Config) (*sql.DB, error) {
+	return openWithDriver("pgx", cfg)
+}
+
+func openWithDriver(driverName string, cfg Config) (*sql.DB, error) {
 	if cfg.DSN == "" {
 		return nil, errors.New("db: missing DSN")
 	}
+	if driverName == "" {
+		return nil, errors.New("db: missing driver")
+	}
 
-	db, err := sql.Open("pgx", cfg.DSN)
+	db, err := sql.Open(driverName, cfg.DSN)
 	if err != nil {
 		return nil, err
 	}
