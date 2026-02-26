@@ -12,14 +12,7 @@ GATES=(
   "./pkg/observability 70"
 )
 
-PROFILE="${1:-coverage.out}"
-
-if [[ ! -f "${PROFILE}" ]]; then
-  echo "coverage profile not found: ${PROFILE}" >&2
-  exit 1
-fi
-
-# Convert "X.YZ" -> integer basis points to avoid float issues
+# Convert "X.YZ" -> integer basis points
 to_bp() {
   local p="$1" # e.g. "82.35"
   if [[ "$p" != *.* ]]; then
@@ -34,27 +27,33 @@ to_bp() {
 }
 
 fail=0
-
 echo "== Coverage gates (per package) =="
 
-# We compute per-package coverage using `go test` with coverpkg scoped to that package.
-# This is slower but deterministic and matches real coverage for that package.
 for gate in "${GATES[@]}"; do
   pkg="${gate% *}"
   min="${gate#* }"
 
-  # Run tests for all packages but only measure coverage for target package.
-  # Use -count=1 to avoid caching.
-  out="$(go test ./... -count=1 -covermode=atomic -coverpkg="${pkg}/..." 2>/dev/null | tail -n 1 || true)"
+  tmp="$(mktemp -t coverpkg.XXXXXX.out)"
 
-  # Expect: "coverage: XX.Y% of statements"
-  if [[ "${out}" != coverage:* ]]; then
-    echo "ERROR: could not compute coverage for ${pkg} (got: '${out}')" >&2
+  # Run tests only for the target package tree and produce a dedicated coverprofile.
+  # -count=1 avoids caching skewing the report.
+  if ! go test "${pkg}/..." -count=1 -covermode=atomic -coverprofile="${tmp}" >/dev/null; then
+    echo "ERROR: tests failed for ${pkg}"
+    rm -f "${tmp}"
     fail=1
     continue
   fi
 
-  pct="$(echo "${out}" | sed -E 's/.*coverage:[[:space:]]*([0-9]+(\.[0-9]+)?)%.*/\1/')"
+  # Extract total coverage percentage
+  pct="$(go tool cover -func="${tmp}" | awk '/^total:/{print $3}' | tr -d '%')"
+  rm -f "${tmp}"
+
+  if [[ -z "${pct}" ]]; then
+    echo "ERROR: could not read coverage for ${pkg}"
+    fail=1
+    continue
+  fi
+
   got_bp="$(to_bp "${pct}")"
   min_bp="$(to_bp "${min}.00")"
 
