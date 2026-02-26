@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -77,7 +78,7 @@ func TestWithTx_RollbackFailureWraps(t *testing.T) {
 	err := WithTx(context.Background(), db, TxOptions{}, func(ctx context.Context, tx *sql.Tx) error {
 		return fnErr
 	})
-	if err == nil || !contains(err.Error(), "rollback failed") {
+	if err == nil || !strings.Contains(err.Error(), "rollback failed") {
 		t.Fatalf("expected wrapped rollback error, got %v", err)
 	}
 }
