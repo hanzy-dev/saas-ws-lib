@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	wsctx "github.com/hanzy-dev/saas-ws-lib/pkg/ctx"
-
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -19,59 +17,24 @@ type Error struct {
 }
 
 func New(code Code, message string, details map[string]any) *Error {
-	if details == nil {
-		details = map[string]any{}
-	}
 	return &Error{
 		Code:    code,
 		Message: message,
-		Details: details,
+		Details: cloneDetails(details),
 	}
 }
 
-func Internal(message string) *Error {
-	return New(CodeInternal, message, nil)
-}
-
-func InvalidArgument(message string) *Error {
-	return New(CodeInvalidArgument, message, nil)
-}
-
-func NotFound(message string) *Error {
-	return New(CodeNotFound, message, nil)
-}
-
-func Forbidden(message string) *Error {
-	return New(CodeForbidden, message, nil)
-}
-
-func Unauthenticated(message string) *Error {
-	return New(CodeUnauthenticated, message, nil)
-}
-
-func Conflict(message string) *Error {
-	return New(CodeConflict, message, nil)
-}
-
-func ResourceExhausted(message string) *Error {
-	return New(CodeResourceExhausted, message, nil)
-}
-
-func Unavailable(message string) *Error {
-	return New(CodeUnavailable, message, nil)
-}
-
-func DeadlineExceeded(message string) *Error {
-	return New(CodeDeadlineExceeded, message, nil)
-}
-
-func AlreadyExists(message string) *Error {
-	return New(CodeAlreadyExists, message, nil)
-}
-
-func FailedPrecondition(message string) *Error {
-	return New(CodeFailedPrecondition, message, nil)
-}
+func Internal(message string) *Error           { return New(CodeInternal, message, nil) }
+func InvalidArgument(message string) *Error    { return New(CodeInvalidArgument, message, nil) }
+func NotFound(message string) *Error           { return New(CodeNotFound, message, nil) }
+func Forbidden(message string) *Error          { return New(CodeForbidden, message, nil) }
+func Unauthenticated(message string) *Error    { return New(CodeUnauthenticated, message, nil) }
+func Conflict(message string) *Error           { return New(CodeConflict, message, nil) }
+func ResourceExhausted(message string) *Error  { return New(CodeResourceExhausted, message, nil) }
+func Unavailable(message string) *Error        { return New(CodeUnavailable, message, nil) }
+func DeadlineExceeded(message string) *Error   { return New(CodeDeadlineExceeded, message, nil) }
+func AlreadyExists(message string) *Error      { return New(CodeAlreadyExists, message, nil) }
+func FailedPrecondition(message string) *Error { return New(CodeFailedPrecondition, message, nil) }
 
 func (e *Error) Error() string {
 	if e == nil {
@@ -83,27 +46,25 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
+// WithTrace returns a shallow copy of e with TraceID derived from OTel span context.
+// Details map is cloned to keep the error immutable from caller mutations.
 func (e *Error) WithTrace(ctx context.Context) *Error {
 	if e == nil {
 		return nil
 	}
-
 	cp := *e
-
-	if cp.Details == nil {
-		cp.Details = map[string]any{}
-	}
-
+	cp.Details = cloneDetails(e.Details)
 	cp.TraceID = TraceID(ctx)
 	return &cp
 }
 
+// TraceID returns trace_id from OpenTelemetry span context.
+// If there's no valid span context, it returns empty string.
+// NOTE: request_id is NOT a trace_id and must not be used as fallback.
 func TraceID(ctx context.Context) string {
-	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+	sc := trace.SpanContextFromContext(ctx)
+	if sc.IsValid() {
 		return sc.TraceID().String()
-	}
-	if rid := wsctx.RequestID(ctx); rid != "" {
-		return rid
 	}
 	return ""
 }
@@ -124,11 +85,6 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 
-	details := e.Details
-	if details == nil {
-		details = map[string]any{}
-	}
-
 	type out struct {
 		Code    string         `json:"code"`
 		Message string         `json:"message"`
@@ -139,7 +95,18 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out{
 		Code:    e.Code.String(),
 		Message: e.Message,
-		Details: details,
+		Details: cloneDetails(e.Details),
 		TraceID: e.TraceID,
 	})
+}
+
+func cloneDetails(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
