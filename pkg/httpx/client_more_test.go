@@ -49,7 +49,6 @@ func TestDo_Validation(t *testing.T) {
 	t.Parallel()
 
 	req := httptest.NewRequest(http.MethodGet, "http://example.invalid", nil)
-
 	if _, err := Do(context.Background(), nil, req, 1); err == nil {
 		t.Fatalf("expected error for nil client")
 	}
@@ -128,7 +127,7 @@ func TestDo_RetryableNetErr_Idempotent(t *testing.T) {
 		Timeout: 2 * time.Second,
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.invalid", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://example.invalid", nil)
 
 	resp, err := Do(context.Background(), client, req, 1)
 	if err != nil {
@@ -152,7 +151,7 @@ func TestDo_NoRetry_NonRetryableError(t *testing.T) {
 		}),
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.invalid", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://example.invalid", nil)
 	_, _ = Do(context.Background(), client, req, 2)
 
 	if atomic.LoadInt32(&calls) != 1 {
@@ -172,7 +171,7 @@ func TestDo_RewindBody_ErrorWhenGetBodyMissing(t *testing.T) {
 		}),
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "http://example.invalid", io.NopCloser(bytes.NewBufferString("x")))
+	req, _ := http.NewRequest(http.MethodPut, "http://example.invalid", io.NopCloser(bytes.NewBufferString("x")))
 	// No GetBody => not replayable
 
 	_, err := Do(context.Background(), client, req, 1)
@@ -244,7 +243,8 @@ func TestRequestIDTransport_SetsHeaderWhenMissing(t *testing.T) {
 	rt := &requestIDTransport{base: base}
 
 	ctx := wsctx.WithRequestID(context.Background(), "rid-1")
-	req := httptest.NewRequest(http.MethodGet, "http://example.invalid", nil).WithContext(ctx)
+	req, _ := http.NewRequest(http.MethodGet, "http://example.invalid", nil)
+	req = req.WithContext(ctx)
 
 	resp, err := rt.RoundTrip(req)
 	if err != nil {
