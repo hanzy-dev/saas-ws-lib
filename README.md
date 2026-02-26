@@ -6,26 +6,53 @@
 [![License](https://img.shields.io/github/license/hanzy-dev/saas-ws-lib)](https://github.com/hanzy-dev/saas-ws-lib/blob/main/LICENSE)
 [![Codecov](https://codecov.io/gh/hanzy-dev/saas-ws-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/hanzy-dev/saas-ws-lib)
 
-
 Production-grade shared foundation for Workspace microservices.
 
-**Status: Production-Ready**
+**Status: v0.1 usable**
 
-> *Built with stability in mind: 100% of core packages (db, errors, httpx, middleware) are covered by unit tests.*
+This library enforces consistent architecture and operational standards across all Workspace services (Identity, Core, Payments, Orders, etc.), eliminating repository drift and inconsistent patterns.
 
-This module enforces consistent architecture and operational standards across all Workspace services (Identity, Core, Payments, Orders, etc.), eliminating repository drift and inconsistent patterns.
+## Proof (CI-enforced)
+
+CI runs: unit tests (+race), govulncheck, golangci-lint, Codecov upload, and **coverage gates per package**.
+
+Coverage gates (v0.1):
+
+- `pkg/errors >= 90%`
+- `pkg/httpx >= 80%`
+- `pkg/middleware >= 80%`
+- `pkg/db >= 80%`
+- `pkg/auth >= 80%`
+- `pkg/observability >= 70%`
+
+Integration (DB) tests are optional and run with build tag:
+
+- `go test ./... -tags=integration`
 
 ## Compatibility
 
 - Go ≥ 1.24
-- OpenTelemetry ≥ 1.40
+- OpenTelemetry SDK ≥ 1.40
 - Prometheus client ≥ 1.19
 
-## Quickstart (chi)
+## Installation
+
+```bash
+go get github.com/hanzy-dev/saas-ws-lib@v0.1.0
+```
+
+## Local development
 
 ```
-go get github.com/hanzy-dev/saas-ws-lib
+go test ./... -count=1
+go test ./... -race
+go test ./... -covermode=atomic -coverprofile=coverage.out
+bash scripts/coverage_gate.sh coverage.out
+golangci-lint run
+govulncheck -scan=module
 ```
+
+## Quickstart (chi)
 
 ```
 r := chi.NewRouter()
@@ -35,23 +62,27 @@ r.Use(middleware.RequestID())
 r.Use(middleware.Recover(logger))
 r.Use(httpx.RequireJSON)
 
-r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+h := httpx.NewHealth(2*time.Second)
+r.Get("/healthz", h.Healthz)
+r.Get("/readyz", h.Readyz)
+
+r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 })
 ```
 
-## What This Library Guarantees
+## What this library guarantees
 
 Every service built on top of this library inherits strict engineering discipline.
 
-1. Request & Trace Discipline
+1) Request & trace discipline
 
-- X-Request-ID propagation
-- OpenTelemetry trace propagation
+- X-Request-ID propagation (request_id)
+- OpenTelemetry trace propagation (trace_id)
 - Structured JSON logging
-- Automatic request_id + trace_id injection into logs
+- request_id + trace_id are injected into logs
 
-2. Standardized Error Contract
+2) Standardized error contract
 
 All services MUST return:
 
@@ -64,14 +95,13 @@ All services MUST return:
 }
 ```
 
-### Invariants
+### Invariants:
 
-- trace_id always present
-- details always an object
-- Error codes consistently mapped to HTTP status
-- No sensitive internal error leakage
+- details is always an object
+- error codes map deterministically to HTTP status
+- no sensitive internal error leakage
 
-### Constructor Helpers
+### Helpers:
 
 ```
 wserr.InvalidArgument("validation failed")
@@ -81,44 +111,42 @@ wserr.Internal("internal error")
 wserr.ResourceExhausted("payload too large")
 ```
 
-3. Authentication Discipline
+3) Authentication discipline
 
-- JWT verification
-- Scope enforcement
-- Optional remote policy hook (RBAC / ABAC)
-- No token validation detail leakage
-- Deterministic error mapping
+- JWT verification (configurable issuer/audience)
+- scope helpers (Has, HasAll, HasAny)
+- optional remote policy hook (RBAC/ABAC) via PolicyChecker
+- no token validation detail leakage
+- deterministic error mapping
 
-4. Observability Discipline
+4) Observability discipline
 
-- OpenTelemetry bootstrap
-- Prometheus metrics middleware
-- Stable route labels (no cardinality explosion)
-- Latency histogram instrumentation
+- OTel bootstrap helper (tracer provider + W3C propagators)
+- Prometheus registry bootstrap
+- HTTP metrics middleware with stable route labels (no cardinality explosion)
 
-5. HTTP Discipline
+5) HTTP discipline
 
-- Secure default server timeouts
+- secure default server timeouts
 - JSON enforcement middleware
-- Safe outbound HTTP client:
-  - Idempotent-aware retry
-  - Capped retry attempts
-  - Retry on transient failures
-  - Request ID propagation
-  - Trace propagation
-  - Context-aware backoff
+- outbound HTTP client:
+  - idempotent-aware retry
+  - capped retries
+  - retry only on transient failures / retryable upstream status
+  - request_id propagation
+  - trace propagation
+  - context-aware backoff
 
-6. Database Discipline
+6) Database discipline
 
-- Configurable connection pooling
-- Startup ping timeout
-- Forward-only migration guard
-- Transaction safety:
-  - Panic-safe rollback
-  - Isolation level support
-  - Read-only support
+- configurable connection pooling
+- startup ping timeout
+- forward-only migration guard
+- transaction safety:
+  - panic-safe rollback
+  - isolation level + read-only options
 
-### Example
+### Example:
 
 ```
 err := db.WithTxDefault(ctx, sqlDB, func(ctx context.Context, tx *sql.Tx) error {
@@ -126,7 +154,7 @@ err := db.WithTxDefault(ctx, sqlDB, func(ctx context.Context, tx *sql.Tx) error 
 })
 ```
 
-### Advanced
+### Advanced:
 
 ```
 err := db.WithTx(ctx, sqlDB, db.TxOptions{
@@ -135,7 +163,7 @@ err := db.WithTx(ctx, sqlDB, db.TxOptions{
 }, fn)
 ```
 
-7. Validation Discipline
+7) Validation discipline
 
 ```
 if err := validate.Struct(req); err != nil {
@@ -144,39 +172,21 @@ if err := validate.Struct(req); err != nil {
 }
 ```
 
-Validation errors automatically map to INVALID_ARGUMENT.
+Validation errors map to INVALID_ARGUMENT.
 
-8. Graceful Shutdown Discipline
+8) Graceful shutdown discipline
 
-- SIGINT / SIGTERM handling
-- Reverse hook execution
-- Bounded shutdown timeout
-- Deterministic resource cleanup
+- SIGINT/SIGTERM handling
+- reverse hook execution
+- bounded shutdown timeout
+- deterministic resource cleanup
 
-## Architectural Guarantees
-
-This library enforces the following invariants across all Workspace services:
-
-- Error responses are immutable and traceable.
-- Transactions are panic-safe.
-- Database migrations are forward-only.
-- HTTP clients never retry unsafe methods.
-- Metrics labels are stable and bounded.
-- Authentication never exposes verification details.
-- Observability is first-class, not optional.
-
-## Installation
-
-```
-go get github.com/hanzy-dev/saas-ws-lib
-```
-
-## Versioning Policy
+## Versioning policy
 
 - Semantic Versioning (MAJOR.MINOR.PATCH)
-- Backward-compatible changes only in MINOR
-- Breaking changes only in MAJOR
-- Services should pin minor versions
+- backward-compatible changes only in MINOR
+- breaking changes only in MAJOR
+- services should pin minor versions
 
 ## Roadmap
 
@@ -184,38 +194,23 @@ go get github.com/hanzy-dev/saas-ws-lib
  - [x] Safe retry-aware HTTP client
  - [x] Transaction isolation support
  - [x] Forward-only migration guard
+ - [x] Coverage gates in CI
  - [ ] DB metrics instrumentation
- - [ ] OpenTelemetry exporter auto-bootstrap helper
+ - [ ] OTel exporter auto-bootstrap helper
  - [ ] Kubernetes production example
-
-## Changelog
-
-See GitHub Releases for versioned changes.
-
-## Philosophy
-
-- No hidden magic
-- No framework lock-in
-- Explicit contracts over implicit behavior
-- Immutable error model
-- Operational safety by default
-- Observability as a first-class concern
-
-This is not a helper library.
-This is the foundation of a multi-repository microservice ecosystem.
 
 ## Indonesia
 
-saas-ws-lib adalah fondasi production-grade untuk seluruh microservice Workspace.
+saas-ws-lib adalah fondasi untuk seluruh microservice Workspace.
 
-Library ini memastikan semua repository memiliki:
+Library ini memastikan setiap service punya disiplin yang konsisten:
 
-- standar error yang konsisten
-- disiplin tracing & logging
-- retry outbound yang aman
+- error contract standar
+- tracing & logging disiplin
+- retry outbound aman
 - metrics dengan cardinality terkontrol
 - guard migrasi forward-only
 - transaksi database yang aman
 - graceful shutdown yang benar
 
-Tujuannya adalah menghilangkan drift arsitektur dan memastikan semua service memiliki disiplin operasional yang sama.
+Tujuannya: menghilangkan drift arsitektur dan memastikan semua service punya disiplin operasional yang sama.
