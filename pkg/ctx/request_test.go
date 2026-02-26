@@ -114,9 +114,9 @@ func TestScopes_CopyOnWrite_And_CopyOnRead(t *testing.T) {
 		t.Fatalf("Scopes(empty) should be nil")
 	}
 
-	// nil ctx safe
-	if Scopes(nil) != nil {
-		t.Fatalf("Scopes(nil ctx) should be nil")
+	// ctx without scopes should return nil
+	if Scopes(context.TODO()) != nil {
+		t.Fatalf("Scopes(TODO) should be nil")
 	}
 }
 
@@ -145,9 +145,9 @@ func TestClaims_Generic(t *testing.T) {
 		t.Fatalf("Claims(type mismatch) ok=true, want false")
 	}
 
-	// nil ctx safe
-	_, ok = Claims[myClaims](nil)
+	// ctx without claims should return ok=false
+	_, ok = Claims[myClaims](context.TODO())
 	if ok {
-		t.Fatalf("Claims(nil ctx) ok=true, want false")
+		t.Fatalf("Claims(TODO) ok=true, want false")
 	}
 }
