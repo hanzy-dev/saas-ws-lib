@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hanzy-dev/saas-ws-lib)](https://goreportcard.com/report/github.com/hanzy-dev/saas-ws-lib)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/hanzy-dev/saas-ws-lib)](https://github.com/hanzy-dev/saas-ws-lib/blob/main/go.mod)
 [![License](https://img.shields.io/github/license/hanzy-dev/saas-ws-lib)](https://github.com/hanzy-dev/saas-ws-lib/blob/main/LICENSE)
-[![Codecov](https://codecov.io/gh/hanzy-dev/saas-ws-lib/branch/main/graph/badge.svg)](https://codecov.io/gh/hanzy-dev/saas-ws-lib)
+[![Codecov](https://codecov.io/gh/hanzy-dev/saas-ws-lib/branch/main/graph/badge.svg?token=0)](https://app.codecov.io/github/hanzy-dev/saas-ws-lib)
 
 Production-grade shared foundation for Workspace microservices.
 
