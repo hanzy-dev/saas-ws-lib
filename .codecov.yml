@@ -15,5 +15,10 @@ comment:
 flags:
   unittests:
     paths:
-      - pkg
-      - doc.go
+      - pkg/auth
+      - pkg/ctx
+      - pkg/db
+      - pkg/errors
+      - pkg/httpx
+      - pkg/middleware
+      - pkg/observability
